@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 )
 
-const fname = ""
+const fname = "../data/test.dat"
 
 func main() {
 	f, err := ioutil.ReadFile(fname)
@@ -13,5 +13,9 @@ func main() {
 	if err != nil {
 		fmt.Printf("Error reading file %s.\n", fname)
 	}
+
+	items := get_unique_items(string(f))
+
+	fmt.Printf("%d", items[0][0])
 
 }
