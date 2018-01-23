@@ -1,22 +1,39 @@
 package main
 
 import (
-	"bdp/bdplib"
+	"bufio"
 	"fmt"
-	"io/ioutil"
+	"os"
+
+	"github.com/CSCI4030U-Project/src/go/main/bdplib"
 )
 
-const fname = "../data/test.dat"
+const fname = "../../../data/test.dat"
 
-func main() {
-	f, err := ioutil.ReadFile(fname)
-
-	if err != nil {
-		fmt.Printf("Error reading file %s.\n", fname)
+func readLines(fname string) []string {
+	var lines []string
+	f, err := os.Open(fname)
+	defer f.Close()
+	if err == nil {
+		fs := bufio.NewScanner(f)
+		for fs.Scan() {
+			lines = append(lines, fs.Text())
+		}
 	}
 
-	items := bdplib.get_unique_items(string(f))
+	return lines
+}
 
-	fmt.Printf("%d", items[0])
+func main() {
+	fcontents := readLines(fname)
+
+	if len(fcontents) < 1 {
+		fmt.Printf("Error reading file %s.\n", fname)
+		return
+	}
+
+	items := bdplib.GetUniqueItems(fcontents)
+
+	fmt.Print(items)
 
 }
