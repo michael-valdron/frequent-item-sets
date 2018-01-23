@@ -1,6 +1,7 @@
-package big_data_project
+package main
 
 import (
+	"bdp/bdplib"
 	"fmt"
 	"io/ioutil"
 )
@@ -14,8 +15,8 @@ func main() {
 		fmt.Printf("Error reading file %s.\n", fname)
 	}
 
-	items := get_unique_items(string(f))
+	items := bdplib.get_unique_items(string(f))
 
-	fmt.Printf("%d", items[0][0])
+	fmt.Printf("%d", items[0])
 
 }
