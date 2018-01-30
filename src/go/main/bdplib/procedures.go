@@ -11,18 +11,26 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sort"
 	"strings"
 )
 
-func readLines(fname string) []string {
+func readLine(f *os.File) string {
+	fs := bufio.NewScanner(f)
+
+	if fs.Scan() {
+		return fs.Text()
+	} else {
+		return ""
+	}
+}
+
+func readLines(f *os.File) []string {
 	var lines []string
-	f, err := os.Open(fname)
-	defer f.Close()
-	if err == nil {
-		fs := bufio.NewScanner(f)
-		for fs.Scan() {
-			lines = append(lines, fs.Text())
-		}
+
+	fs := bufio.NewScanner(f)
+	for fs.Scan() {
+		lines = append(lines, strings.TrimSuffix(fs.Text(), " "))
 	}
 
 	return lines
@@ -54,19 +62,6 @@ func getKeyStr(a_map map[string]int) []string {
 	return keys
 }
 
-/*func getBaskets(fcontents []string) [][]int {
-	var baskets = make([][]int, len(fcontents))
-	for i, _ := range fcontents {
-		baskets[i] = make([]int, 0, len(fcontents))
-		for _, item := range strings.Split(fcontents[i], " ") {
-			nitem, _ := strconv.Atoi(item)
-			baskets[i] = append(baskets[i], nitem)
-		}
-	}
-
-	return baskets
-}*/
-
 func getUniqueItems(fcontents []string, min_supp int) map[string]int {
 	item_counts := make(map[string]int)
 	for _, basket := range fcontents {
@@ -89,23 +84,108 @@ func getUniqueItems(fcontents []string, min_supp int) map[string]int {
 	return item_counts
 }
 
+// Old Code
+/*func getBaskets(k_items []string, init_items []string, min_supp int) map[string]int {
+	basket_counts := make(map[string]int)
+	for _, k_item_set := range k_items {
+		for _, item := range init_items {
+			sel_item_set := append(strings.Split(k_item_set, ","), item)
+			sort.Strings(sel_item_set)
+			if len(k_item_set) == 1 || !checkIn(item, strings.Split(k_item_set, ",")) {
+				basket_counts[strings.Join(sel_item_set, ",")] = 1
+			} else {
+				basket_counts[strings.Join(sel_item_set, ",")] += 1
+				fmt.Println(strings.Join(sel_item_set, ","))
+			}
+		}
+	}
+
+	for key, value := range basket_counts {
+		if value < min_supp {
+			delete(basket_counts, key)
+		}
+	}
+
+	return basket_counts
+}*/
+
+func getBaskets(k_items []string, init_items []string) []string {
+	var baskets []string
+	for _, k_item_set := range k_items {
+		for _, item := range init_items {
+			if !checkIn(item, strings.Split(k_item_set, ",")) {
+				sel_item_set := append(strings.Split(k_item_set, ","), item)
+				sort.Strings(sel_item_set)
+				if !checkIn(strings.Join(sel_item_set, ","), baskets) {
+					baskets = append(baskets, strings.Join(sel_item_set, ","))
+				}
+			}
+		}
+	}
+
+	return baskets
+}
+
+func getFreqTuples(f *os.File, tuples []string, min_supp int) map[string]int {
+	item_set_counts := make(map[string]int)
+
+	for _, tuple := range tuples {
+		f.Seek(0, 0)
+		fs := bufio.NewScanner(f)
+		for fs.Scan() {
+			fline := strings.TrimSuffix(fs.Text(), " ")
+			similar_count := 0
+			for _, item := range strings.Split(tuple, ",") {
+				if checkIn(item, strings.Split(fline, " ")) {
+					similar_count += 1
+				}
+			}
+			if similar_count == len(strings.Split(tuple, ",")) {
+				keys := getKeyStr(item_set_counts)
+				if !checkIn(tuple, keys) {
+					item_set_counts[tuple] = 1
+				} else {
+					item_set_counts[tuple] += 1
+				}
+			}
+		}
+	}
+
+	for key, value := range item_set_counts {
+		if value < min_supp {
+			delete(item_set_counts, key)
+		}
+	}
+
+	return item_set_counts
+}
+
 func Apriori(fname string, t_hold int) {
-	//var k = 0
+	var k = 0
 	var fcontents []string
 	var item_set_counts []map[string]int
 	var min_supp int
 
-	fcontents = readLines(fname)
-	min_supp = t_hold // * len(fcontents)
-	if len(fcontents) < 1 {
+	f, err := os.Open(fname)
+	defer f.Close()
+	if err != nil {
 		fmt.Printf("Error reading file %s.\n", fname)
 		return
 	}
+	fcontents = readLines(f)
+	min_supp = t_hold // * len(fcontents)
 	item_set_counts = append(item_set_counts, getUniqueItems(fcontents, min_supp))
 	fcontents = nil
 
-	/* TODO: Create main loop for pairs and triples */
-	//for len(item_set_counts[k]) > 0 && k < 2 {
+	for len(item_set_counts[k]) > 0 && k < 2 {
+		k_item_sets := getKeyStr(item_set_counts[k])
+		init_item_sets := getKeyStr(item_set_counts[0])
+		candidate_item_set := getBaskets(k_item_sets, init_item_sets)
+		item_set_counts = append(item_set_counts, getFreqTuples(f, candidate_item_set, min_supp))
+		k += 1
+	}
 
-	//}
+	fmt.Println(item_set_counts[0])
+	fmt.Println(item_set_counts[1])
+	fmt.Println(item_set_counts[2])
 }
