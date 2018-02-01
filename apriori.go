@@ -4,7 +4,7 @@
 	Author: Michael Valdron
 	Date: Feb 12, 2018
 */
-package bdplib
+package main
 
 import (
 	"fmt"
