@@ -8,13 +8,36 @@ package main
 
 import "fmt"
 
-const FNAME = "data/test.dat"
-const THOLD = 10
+// The filename of the data source to be used.
+const FNAME = "data/retail.dat"
+
+// The threshold used in Apriori and PCY algorithms.
+const THOLD float32 = 0.01
+
+// Print frequent items and itemsets (pairs, triples)
+func print(freq_itemsets []map[string]int) {
+	for _, item_set := range freq_itemsets {
+		fmt.Println(item_set)
+	}
+}
 
 func main() {
-	var freq_item_sets []map[string]int
-	freq_item_sets = Apriori(FNAME, THOLD)
-	fmt.Println(freq_item_sets[0])
-	fmt.Println(freq_item_sets[1])
-	fmt.Println(freq_item_sets[2])
+	/*
+	   Stores the frequent itemsets as hash maps where
+	   the key is the itemset and the value is the frequency
+	   of the itemset.
+	*/
+	var freq_itemsets []map[string]int
+
+	// Gets frequent itemsets from the Apriori algorithm
+	freq_itemsets = Apriori(FNAME, THOLD)
+
+	// Print Apriori results
+	print(freq_itemsets)
+
+	// Gets frequent itemsets from the PCY algorithm
+	//freq_itemsets = PCY(FNAME, THOLD)
+
+	// Print PCY results
+	//print(freq_itemsets)
 }
