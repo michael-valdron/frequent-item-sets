@@ -8,23 +8,42 @@ package main
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"reflect"
-	"sort"
-	"strings"
 )
 
-func readLines(f *os.File) []string {
-	var lines []string
-
-	fs := bufio.NewScanner(f)
-	for fs.Scan() {
-		lines = append(lines, strings.TrimSuffix(fs.Text(), " "))
+func openFile(fname string) (*os.File, bool) {
+	f, err := os.Open(fname)
+	if err != nil {
+		fmt.Printf("Error reading file %s.\n", fname)
+		return f, false
+	} else {
+		return f, true
 	}
-
-	return lines
 }
 
+func getFileLength(fname string) int {
+	f, is_open := openFile(fname)
+	defer f.Close()
+	if is_open {
+		fs := bufio.NewScanner(f)
+		line_c := 0
+
+		for fs.Scan() {
+			line_c += 1
+		}
+
+		return line_c
+	} else {
+		return 0
+	}
+}
+
+/*
+   Checks if a value is in a array/slice. The values passed
+   must be of the type string.
+*/
 func checkIn(a string, list []string) bool {
 	for _, b := range list {
 		if b == a {
@@ -34,6 +53,11 @@ func checkIn(a string, list []string) bool {
 	return false
 }
 
+/*
+   Creates an entire array filled with a specific
+   value and length passed.  This is an integer
+   version of the algorithm.
+*/
 func fillCollecInt(v int, l int) []int {
 	my_collec := make([]int, l)
 	for i := range my_collec {
@@ -43,6 +67,11 @@ func fillCollecInt(v int, l int) []int {
 	return my_collec
 }
 
+/*
+   Gets a slice of all the keys which a passed
+   hash map contains.  This is the string version
+   of the algorithm.
+*/
 func getKeyStr(a_map map[string]int) []string {
 	var keys []string
 	for _, k := range reflect.ValueOf(a_map).MapKeys() {
@@ -51,75 +80,10 @@ func getKeyStr(a_map map[string]int) []string {
 	return keys
 }
 
-func getUniqueItems(fcontents []string, min_supp int) map[string]int {
-	item_counts := make(map[string]int)
-	for _, basket := range fcontents {
-		for _, item := range strings.Split(basket, " ") {
-			keys := getKeyStr(item_counts)
-			if len(keys) == 0 || !checkIn(item, keys) {
-				item_counts[item] = 1
-			} else {
-				item_counts[item] += 1
-			}
-		}
-	}
-
-	for key, value := range item_counts {
+func filterItemsets(itemset_counts map[string]int, min_supp int) {
+	for key, value := range itemset_counts {
 		if value < min_supp {
-			delete(item_counts, key)
+			delete(itemset_counts, key)
 		}
 	}
-
-	return item_counts
-}
-
-func getBaskets(k_items []string, init_items []string) []string {
-	var baskets []string
-	for _, k_item_set := range k_items {
-		for _, item := range init_items {
-			if !checkIn(item, strings.Split(k_item_set, ",")) {
-				sel_item_set := append(strings.Split(k_item_set, ","), item)
-				sort.Strings(sel_item_set)
-				if !checkIn(strings.Join(sel_item_set, ","), baskets) {
-					baskets = append(baskets, strings.Join(sel_item_set, ","))
-				}
-			}
-		}
-	}
-
-	return baskets
-}
-
-func getFreqTuples(f *os.File, tuples []string, min_supp int) map[string]int {
-	item_set_counts := make(map[string]int)
-
-	for _, tuple := range tuples {
-		f.Seek(0, 0)
-		fs := bufio.NewScanner(f)
-		for fs.Scan() {
-			fline := strings.TrimSuffix(fs.Text(), " ")
-			similar_count := 0
-			for _, item := range strings.Split(tuple, ",") {
-				if checkIn(item, strings.Split(fline, " ")) {
-					similar_count += 1
-				}
-			}
-			if similar_count == len(strings.Split(tuple, ",")) {
-				keys := getKeyStr(item_set_counts)
-				if !checkIn(tuple, keys) {
-					item_set_counts[tuple] = 1
-				} else {
-					item_set_counts[tuple] += 1
-				}
-			}
-		}
-	}
-
-	for key, value := range item_set_counts {
-		if value < min_supp {
-			delete(item_set_counts, key)
-		}
-	}
-
-	return item_set_counts
 }
