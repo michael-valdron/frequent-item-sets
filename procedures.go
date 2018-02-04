@@ -10,7 +10,6 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"reflect"
 )
 
 func openFile(fname string) (*os.File, bool) {
@@ -74,16 +73,8 @@ func fillCollecInt(v int, l int) []int {
 */
 func getKeyStr(a_map map[string]int) []string {
 	var keys []string
-	for _, k := range reflect.ValueOf(a_map).MapKeys() {
-		keys = append(keys, k.String())
+	for k, _ := range a_map {
+		keys = append(keys, k)
 	}
 	return keys
-}
-
-func filterItemsets(itemset_counts map[string]int, min_supp int) {
-	for key, value := range itemset_counts {
-		if value < min_supp {
-			delete(itemset_counts, key)
-		}
-	}
 }
