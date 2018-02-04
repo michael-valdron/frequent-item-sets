@@ -7,23 +7,36 @@
 package main
 
 import (
-	"bufio"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
 )
 
-const N_BINS = 500
-
-func hashFuncA(value string, m int) int {
-	h := 0
+func mulHashFunc(value string, m int) int {
+	var a float64 = (math.Sqrt(5) - 1) / 2
+	var h float64 = 0.0
 
 	for _, s := range strings.Split(value, ",") {
 		n, _ := strconv.Atoi(s)
-		h += n
+		h += float64(n)
 	}
 
-	return h % m
+	prod := h * a
+	frac := prod - math.Floor(prod)
+
+	return int(math.Floor(float64(m) * frac))
+}
+
+func hashBasket(basket []string, itemset_hashtable []int, n_bins int) {
+	for i := range basket {
+		for j := i; j < len(basket); j++ {
+			if basket[i] != basket[j] {
+				pair := basket[i] + "," + basket[j]
+				itemset_hashtable[mulHashFunc(pair, n_bins)] += 1
+			}
+		}
+	}
 }
 
 func hashtableToBitmap(itemset_hashtable []int, itemset_bitmap []bool, min_supp int) {
@@ -32,56 +45,17 @@ func hashtableToBitmap(itemset_hashtable []int, itemset_bitmap []bool, min_supp 
 	}
 }
 
-func getFreqItemsPCY(fname string, min_supp int, itemset_bitmap []bool) map[string]int {
-	f, is_open := openFile(fname)
-
-	if is_open {
-		defer f.Close()
-		item_counts := make(map[string]int)
-		itemset_hashtable := make([]int, len(itemset_bitmap))
-		fs := bufio.NewScanner(f)
-
-		for fs.Scan() {
-			bucket := strings.Split(strings.TrimSuffix(fs.Text(), " "), " ")
-			for _, item := range bucket {
-				keys := getKeyStr(item_counts)
-				if len(keys) == 0 || !checkIn(item, keys) {
-					item_counts[item] = 1
-				} else {
-					item_counts[item] += 1
-				}
-			}
-			for i := range bucket {
-				for j := i; j < len(bucket); j++ {
-					if bucket[i] != bucket[j] {
-						pair := bucket[i] + "," + bucket[j]
-						itemset_hashtable[hashFuncA(pair, len(itemset_bitmap))] += 1
-					}
-				}
-			}
-		}
-
-		// Debug message
-		//fmt.Println(itemset_hashtable)
-
-		filterItemsets(item_counts, min_supp)
-		hashtableToBitmap(itemset_hashtable, itemset_bitmap, min_supp)
-
-		return item_counts
-	} else {
-		return map[string]int{}
-	}
-}
-
-func getBasketsPCY(k_items []string, init_items []string) []string {
+func getBasketsPCY(k_items []string, init_items []string, bitmap []bool, n_bins int) []string {
 	var baskets []string
-	for _, k_item_set := range k_items {
+	for _, k_item_set_str := range k_items {
+		k_item_set := strings.Split(k_item_set_str, TUPLE_SEP)
 		for _, item := range init_items {
-			if !checkIn(item, strings.Split(k_item_set, ",")) {
-				sel_item_set := append(strings.Split(k_item_set, ","), item)
+			if !checkIn(item, k_item_set) {
+				sel_item_set := append(k_item_set, item)
 				sort.Strings(sel_item_set)
-				if !checkIn(strings.Join(sel_item_set, ","), baskets) {
-					baskets = append(baskets, strings.Join(sel_item_set, ","))
+				sel_item_set_str := strings.Join(sel_item_set, TUPLE_SEP)
+				if bitmap[mulHashFunc(sel_item_set_str, n_bins)] && !checkIn(sel_item_set_str, baskets) {
+					baskets = append(baskets, sel_item_set_str)
 				}
 			}
 		}
@@ -90,49 +64,16 @@ func getBasketsPCY(k_items []string, init_items []string) []string {
 	return baskets
 }
 
-func getFreqTuplesPCY(fname string, tuples []string, min_supp int) map[string]int {
-	f, is_open := openFile(fname)
-
-	if is_open {
-		defer f.Close()
-		itemset_counts := make(map[string]int)
-
-		for _, tuple := range tuples {
-			f.Seek(0, 0)
-			fs := bufio.NewScanner(f)
-			for fs.Scan() {
-				similar_count := 0
-				for _, item := range strings.Split(tuple, ",") {
-					if checkIn(item, strings.Split(strings.TrimSuffix(fs.Text(), " "), " ")) {
-						similar_count += 1
-					}
-				}
-				if similar_count == len(strings.Split(tuple, ",")) {
-					keys := getKeyStr(itemset_counts)
-					if !checkIn(tuple, keys) {
-						itemset_counts[tuple] = 1
-					} else {
-						itemset_counts[tuple] += 1
-					}
-				}
-			}
-		}
-
-		filterItemsets(itemset_counts, min_supp)
-
-		return itemset_counts
-	} else {
-		return map[string]int{}
-	}
-}
-
-func PCY(fname string, t_hold int) []map[string]int {
+func PCY(fname string, t_hold float32) []map[string]int {
 	k := 0
-	min_supp := t_hold
-	itemset_bitmap := make([]bool, N_BINS)
+	n := float32(getFileLength(fname))
+	min_supp := int(t_hold * n)
+	bins := int(n * 0.2)
 	var itemset_counts []map[string]int
 
-	itemset_counts = append(itemset_counts, getFreqItemsPCY(fname, min_supp, itemset_bitmap))
+	items, itemset_bitmap := getFreqItems(fname, min_supp, true, bins)
+	itemset_counts = append(itemset_counts, items)
+	items = nil
 
 	// Debug message
 	//fmt.Println(itemset_bitmap)
@@ -140,8 +81,8 @@ func PCY(fname string, t_hold int) []map[string]int {
 	for len(itemset_counts[k]) > 0 && k < 2 {
 		k_item_sets := getKeyStr(itemset_counts[k])
 		init_item_sets := getKeyStr(itemset_counts[0])
-		candidate_item_set := getBasketsPCY(k_item_sets, init_item_sets)
-		itemset_counts = append(itemset_counts, getFreqTuplesPCY(fname, candidate_item_set, min_supp))
+		candidate_item_set := getBasketsPCY(k_item_sets, init_item_sets, itemset_bitmap, bins)
+		itemset_counts = append(itemset_counts, getFreqTuples(fname, candidate_item_set, min_supp))
 		k += 1
 	}
 
