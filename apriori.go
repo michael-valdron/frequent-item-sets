@@ -1,56 +1,169 @@
-/*
-	CSCI4030U: Big Data Project Part 1
-	Apriori
-	Author: Michael Valdron
-	Date: Feb 12, 2018
-*/
 package main
 
 import (
-	"sort"
+	"bufio"
+	"fmt"
+	"os"
+	"strconv"
 	"strings"
 )
 
-func getFreqItemsApriori(fname string, min_supp int) map[string]int {
-	itemset, _ := getFreqItems(fname, min_supp, false, 0)
-	return itemset
+const FILE_SEP = " "
+
+func CheckIn(i int, list []int) bool {
+	for _, v := range list {
+		if i == v {
+			return true
+		}
+	}
+	return false
 }
 
-func getBasketsApriori(k_items []string, init_items []string) []string {
-	var baskets []string
-	for _, k_item_set_str := range k_items {
-		k_item_set := strings.Split(k_item_set_str, TUPLE_SEP)
-		for _, item := range init_items {
-			if !checkIn(item, k_item_set) {
-				sel_item_set := append(k_item_set, item)
-				sort.Strings(sel_item_set)
-				sel_item_set_str := strings.Join(sel_item_set, TUPLE_SEP)
-				if !checkIn(sel_item_set_str, baskets) {
-					baskets = append(baskets, sel_item_set_str)
-				}
+func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
+	k := 0
+	var n float32
+	// Old Code
+	//n := float32(getFileLength(fname))
+	var itemsets []map[int][]int
+	var counts []map[int]int
+
+	// Get Items First Pass -------------------------------------------------------------------------------------
+	f, err := os.Open(fname)
+	defer f.Close()
+	if err != nil {
+		fmt.Printf("%s\n", err)
+		return []map[int][]int{}, []map[int]int{}
+	}
+
+	n = 0
+	fs := bufio.NewScanner(f)
+	c_items := make(map[int]bool)
+	c_item_counts := make(map[int]int)
+
+	for fs.Scan() {
+		for _, item := range strings.Split(strings.TrimSuffix(fs.Text(), FILE_SEP), FILE_SEP) {
+			int_item, _ := strconv.Atoi(item)
+			if !c_items[int_item] {
+				c_items[int_item] = true
+				c_item_counts[int_item] = 1
+			} else {
+				c_item_counts[int_item] += 1
 			}
+		}
+		n++
+	}
+
+	// Calculate minimum support
+	min_supp := int(t_hold * n)
+
+	itemsets = []map[int][]int{}
+	itemsets = append(itemsets, make(map[int][]int))
+	// Filter items
+	for item, count := range c_item_counts {
+		if count < min_supp {
+			delete(c_item_counts, item)
+		} else {
+			itemsets[k][item] = []int{item}
 		}
 	}
 
-	return baskets
-}
+	counts = append(counts, c_item_counts)
 
-func Apriori(fname string, t_hold float32) []map[string]int {
-	k := 0
-	n := float32(getFileLength(fname))
-	min_supp := int(t_hold * n)
-	var itemset_counts []map[string]int
+	// ----------------------------------------------------------------------------------------------------------
+	// Old Code
+	// itemsets, counts = append(itemset_counts, getFreqItemsApriori(fname, min_supp))
 
-	itemset_counts = append(itemset_counts, getFreqItemsApriori(fname, min_supp))
+	for len(itemsets[k]) > 0 && k < 2 {
+		// Old Code:
+		// k_item_sets := getKeyStr(itemset_counts[k])
+		// init_item_sets := getKeyStr(itemset_counts[0])
+		// candidate_item_set := getBasketsApriori(k_item_sets, init_item_sets)
+		// itemset_counts = append(itemset_counts, getFreqTuples(fname, candidate_item_set, min_supp)
 
-	for len(itemset_counts[k]) > 0 && k < 2 {
-		k_item_sets := getKeyStr(itemset_counts[k])
-		init_item_sets := getKeyStr(itemset_counts[0])
-		candidate_item_set := getBasketsApriori(k_item_sets, init_item_sets)
-		itemset_counts = append(itemset_counts, getFreqTuples(fname, candidate_item_set, min_supp))
+		// Get Frequent Tuples
+		c_itemsets := make(map[int][]int)
+		c_itemset_counts := make(map[int]int)
 
-		k += 1
+		// Generate Tuples
+		i := 1
+		for _, k_itemset := range itemsets[k] {
+			for item := range itemsets[0] {
+				if !CheckIn(item, k_itemset) {
+					itemset := append(k_itemset, item)
+					is_similar := false
+					for _, c_itemset := range c_itemsets {
+						n_items_similar := 0
+						for _, v := range itemset {
+							if CheckIn(v, c_itemset) {
+								n_items_similar++
+							}
+						}
+						if n_items_similar > (k + 1) {
+							is_similar = true
+							break
+						}
+					}
+					if !is_similar {
+						c_itemsets[i] = itemset
+						c_itemset_counts[i] = 0
+						i++
+					}
+				}
+			}
+		}
+		fmt.Println("Passed generating tuples.")
+
+		// Count Tuples
+		f, err := os.Open(fname)
+		defer f.Close()
+		if err != nil {
+			fmt.Printf("%s\n", err)
+			return []map[int][]int{}, []map[int]int{}
+		}
+
+		fs := bufio.NewScanner(f)
+
+		for fs.Scan() {
+			line_map := make(map[int]bool)
+			for _, item := range strings.Split(strings.TrimSuffix(fs.Text(), FILE_SEP), FILE_SEP) {
+				int_item, _ := strconv.Atoi(item)
+				line_map[int_item] = true
+			}
+			for key, tuple := range c_itemsets {
+				n_similar := 0
+				for _, item := range tuple {
+					if line_map[item] {
+						n_similar++
+					} else {
+						break
+					}
+				}
+				if n_similar > (k + 1) {
+					c_itemset_counts[key]++
+				}
+			}
+		}
+		fmt.Println("Passed counting tuples.")
+
+		itemsets = append(itemsets, make(map[int][]int))
+		// Filter items
+		for key, count := range c_itemset_counts {
+			if count < min_supp {
+				delete(c_itemset_counts, key)
+				delete(c_itemsets, key)
+			} else {
+				itemsets[k+1][key] = c_itemsets[key]
+			}
+		}
+
+		counts = append(counts, c_itemset_counts)
+
+		k++
+	}
+	if len(itemsets[k]) == 0 {
+		itemsets = itemsets[0:k]
+		counts = counts[0:k]
 	}
 
-	return itemset_counts
+	return itemsets, counts
 }

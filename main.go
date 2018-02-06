@@ -11,14 +11,19 @@ import (
 	"time"
 )
 
+type Itemset struct {
+	tuple []int
+	count int
+}
+
 // The filename of the data source to be used.
-const FNAME string = "data/retail.dat"
+const FNAME string = "retail.dat"
 
 // The threshold used in Apriori and PCY algorithms.
 const THOLD float32 = 0.01
 
 // Print frequent items and itemsets (pairs, triples)
-func print(title string, freq_itemsets []map[string]int) {
+func print(title string, freq_itemsets []map[int][]int, freq_itemset_counts []map[int]int) {
 	fmt.Println(title)
 	for i := 0; i < len(title); i++ {
 		fmt.Print("=")
@@ -47,7 +52,8 @@ func main() {
 	   the key is the itemset and the value is the frequency
 	   of the itemset.
 	*/
-	var freq_itemsets []map[string]int
+	var freq_itemsets []map[int][]int
+	var freq_itemset_counts []map[int]int
 	var start_time time.Time
 	var finish_time time.Time
 
@@ -55,28 +61,29 @@ func main() {
 	fmt.Println("Please wait..")
 	start_time = time.Now()
 	// Gets frequent itemsets from the Apriori algorithm
-	freq_itemsets = Apriori(FNAME, THOLD)
+	// freq_itemsets, freq_itemset_counts = Apriori(FNAME, THOLD)
+	Apriori(FNAME, THOLD)
 	finish_time = time.Now()
 	fmt.Printf("Done!  Took %d minutes and %d seconds.\n",
 		int(finish_time.Sub(start_time).Minutes()),
 		(int(finish_time.Sub(start_time).Seconds()) % 60))
 	fmt.Println("Printing result..")
 	// Print Apriori results
-	print("Apriori Results", freq_itemsets)
+	print("Apriori Results", freq_itemsets, freq_itemset_counts)
 	fmt.Println("Done!")
 
-	fmt.Println("PCY started.")
-	fmt.Println("Please wait..")
-	start_time = time.Now()
-	// Gets frequent itemsets from the PCY algorithm
-	freq_itemsets = PCY(FNAME, THOLD)
-	finish_time = time.Now()
-	fmt.Printf("Done!  Took %d minutes and %d seconds.\n",
-		int(finish_time.Sub(start_time).Minutes()),
-		(int(finish_time.Sub(start_time).Seconds()) % 60))
-	fmt.Println("Printing result..")
-	// Print PCY results
-	print("PCY Results", freq_itemsets)
-	fmt.Println("Done!")
+	// fmt.Println("PCY started.")
+	// fmt.Println("Please wait..")
+	// start_time = time.Now()
+	// // Gets frequent itemsets from the PCY algorithm
+	// freq_itemsets = PCY(FNAME, THOLD)
+	// finish_time = time.Now()
+	// fmt.Printf("Done!  Took %d minutes and %d seconds.\n",
+	// 	int(finish_time.Sub(start_time).Minutes()),
+	// 	(int(finish_time.Sub(start_time).Seconds()) % 60))
+	// fmt.Println("Printing result..")
+	// // Print PCY results
+	// print("PCY Results", freq_itemsets)
+	// fmt.Println("Done!")
 	fmt.Println("Program Finished.")
 }
