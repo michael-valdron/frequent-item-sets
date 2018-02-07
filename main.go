@@ -45,7 +45,7 @@ func mergeSets(freq_itemsets []map[int][]int, freq_itemset_counts []map[int]int)
 
 // Print frequent items and itemsets (pairs, triples)
 func print(title string, itemsets_and_counts []Itemsets) {
-	fmt.Println(title)
+	fmt.Printf("\n%s\n", title)
 	for i := 0; i < len(title); i++ {
 		fmt.Print("=")
 	}
