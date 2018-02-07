@@ -22,8 +22,6 @@ func CheckIn(i int, list []int) bool {
 func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
 	k := 0
 	var n float32
-	// Old Code
-	//n := float32(getFileLength(fname))
 	var itemsets []map[int][]int
 	var counts []map[int]int
 
@@ -70,16 +68,8 @@ func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
 	counts = append(counts, c_item_counts)
 
 	// ----------------------------------------------------------------------------------------------------------
-	// Old Code
-	// itemsets, counts = append(itemset_counts, getFreqItemsApriori(fname, min_supp))
 
 	for len(itemsets[k]) > 0 && k < 2 {
-		// Old Code:
-		// k_item_sets := getKeyStr(itemset_counts[k])
-		// init_item_sets := getKeyStr(itemset_counts[0])
-		// candidate_item_set := getBasketsApriori(k_item_sets, init_item_sets)
-		// itemset_counts = append(itemset_counts, getFreqTuples(fname, candidate_item_set, min_supp)
-
 		// Get Frequent Tuples
 		c_itemsets := make(map[int][]int)
 		c_itemset_counts := make(map[int]int)
@@ -111,7 +101,6 @@ func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
 				}
 			}
 		}
-		fmt.Println("Passed generating tuples.")
 
 		// Count Tuples
 		f, err := os.Open(fname)
@@ -143,7 +132,6 @@ func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
 				}
 			}
 		}
-		fmt.Println("Passed counting tuples.")
 
 		itemsets = append(itemsets, make(map[int][]int))
 		// Filter items
