@@ -16,6 +16,26 @@ import (
 
 const FILE_SEP = " "
 
+func Min(list []int) int {
+	min := 0
+	for _, v := range list {
+		if v > min {
+			min = v
+		}
+	}
+	return min
+}
+
+func Max(list []int) int {
+	max := 0
+	for _, v := range list {
+		if v < max {
+			max = v
+		}
+	}
+	return max
+}
+
 func CheckIn(i int, list []int) bool {
 	for _, v := range list {
 		if i == v {
@@ -58,27 +78,39 @@ func FilterItemsets(itemsets []map[int][]int, c_itemsets map[int][]int, c_itemse
    Also returns the number of baskets in the
    dataset.
 */
-func GetFreqItems(fname string) (map[int]int, float32) {
+func GetFreqItems(fname string, t_hold float32, is_pcy bool) (map[int]int, int, map[int]bool) {
 	var n float32
 	f, err := os.Open(fname)
 	defer f.Close()
 	if err != nil {
 		fmt.Printf("%s\n", err)
-		return map[int]int{}, 0
+		return map[int]int{}, 0, map[int]bool{}
 	}
 
 	n = 0
 	fs := bufio.NewScanner(f)
 	c_items := make(map[int]bool)
 	c_item_counts := make(map[int]int)
+	itemsets_hashtable := make([]int, N_BINS)
+	itemsets_bitmap := make(map[int]bool)
 
 	for fs.Scan() {
-		GetItemCounts(strings.Split(strings.TrimSuffix(fs.Text(), FILE_SEP), FILE_SEP),
-			c_items, c_item_counts)
+		str_line := strings.Split(strings.TrimSuffix(fs.Text(), FILE_SEP), FILE_SEP)
+		GetItemCounts(str_line, c_items, c_item_counts)
+		if is_pcy {
+			HashBasket(str_line, itemsets_hashtable, N_BINS)
+		}
 		n++
 	}
 
-	return c_item_counts, n
+	// Calculate minimum support
+	min_supp := int(t_hold * n)
+
+	if is_pcy {
+		itemsets_bitmap = HashtableToBitmap(itemsets_hashtable, min_supp)
+	}
+
+	return c_item_counts, min_supp, itemsets_bitmap
 }
 
 func GetItemCounts(tuple []string, c_items map[int]bool, c_item_counts map[int]int) {
@@ -93,7 +125,7 @@ func GetItemCounts(tuple []string, c_items map[int]bool, c_item_counts map[int]i
 	}
 }
 
-func GenTuples(itemsets []map[int][]int, k int) (map[int][]int, map[int]int) {
+func GenTuples(itemsets []map[int][]int, k int, bitmap map[int]bool, is_pcy bool) (map[int][]int, map[int]int) {
 	// Get Frequent Tuples
 	c_itemsets := make(map[int][]int)
 	c_itemset_counts := make(map[int]int)
@@ -102,14 +134,18 @@ func GenTuples(itemsets []map[int][]int, k int) (map[int][]int, map[int]int) {
 	row_id := 1
 	for _, k_itemset := range itemsets[k] {
 		for item := range itemsets[0] {
-			AddItemToSet(k_itemset, item, c_itemsets, c_itemset_counts, &row_id, k)
+			if is_pcy {
+				AddItemToSetPCY(k_itemset, item, c_itemsets, c_itemset_counts, &row_id, k, bitmap)
+			} else {
+				AddItemToSetApriori(k_itemset, item, c_itemsets, c_itemset_counts, &row_id, k)
+			}
 		}
 	}
 
 	return c_itemsets, c_itemset_counts
 }
 
-func AddItemToSet(selSet []int, item int, c_itemsets map[int][]int, c_itemset_counts map[int]int, row_id *int, k int) {
+func AddItemToSetApriori(selSet []int, item int, c_itemsets map[int][]int, c_itemset_counts map[int]int, row_id *int, k int) {
 	if !CheckIn(item, selSet) {
 		itemset := append(selSet, item)
 		is_similar := false
@@ -123,6 +159,26 @@ func AddItemToSet(selSet []int, item int, c_itemsets map[int][]int, c_itemset_co
 			c_itemsets[*row_id] = itemset
 			c_itemset_counts[*row_id] = 0
 			*row_id++
+		}
+	}
+}
+
+func AddItemToSetPCY(selSet []int, item int, c_itemsets map[int][]int, c_itemset_counts map[int]int, row_id *int, k int, bitmap map[int]bool) {
+	if !CheckIn(item, selSet) {
+		itemset := append(selSet, item)
+		if bitmap[MulHashFunc(itemset, N_BINS)] {
+			is_similar := false
+			for _, c_itemset := range c_itemsets {
+				is_similar = IsSimilar(itemset, c_itemset, k)
+				if is_similar {
+					break
+				}
+			}
+			if !is_similar {
+				c_itemsets[*row_id] = itemset
+				c_itemset_counts[*row_id] = 0
+				*row_id++
+			}
 		}
 	}
 }

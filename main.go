@@ -126,7 +126,7 @@ func main() {
 			fmt.Println("Please wait..")
 			start_time = time.Now()
 			// Gets frequent itemsets from the PCY algorithm
-			//freq_itemsets, freq_itemset_counts = PCY(*fname, *thold)
+			freq_itemsets, freq_itemset_counts = PCY(*fname, float32(*thold/PERCENT_MAX))
 			finish_time = time.Now()
 			fmt.Println("Printing result..")
 			// Print results

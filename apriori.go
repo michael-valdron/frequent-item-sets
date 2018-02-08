@@ -8,16 +8,12 @@ package main
 
 func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
 	k := 0
-	var n float32
 	var itemsets []map[int][]int
 	var counts []map[int]int
 
 	// Get Items First Pass -------------------------------------------------------------------------------------
 
-	c_item_counts, n := GetFreqItems(fname)
-
-	// Calculate minimum support
-	min_supp := int(t_hold * n)
+	c_item_counts, min_supp, _ := GetFreqItems(fname, t_hold, false)
 
 	itemsets = []map[int][]int{}
 	itemsets = append(itemsets, make(map[int][]int))
@@ -30,7 +26,7 @@ func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
 
 	// Calculate Itemsets Second to Finite Pass -----------------------------------------------------------------
 	for len(itemsets[k]) > 0 && k < 2 {
-		c_itemsets, c_itemset_counts := GenTuples(itemsets, k)
+		c_itemsets, c_itemset_counts := GenTuples(itemsets, k, map[int]bool{}, false)
 		c_itemsets, c_itemset_counts = GetFreqTuples(c_itemsets, c_itemset_counts, fname, k)
 
 		itemsets = append(itemsets, make(map[int][]int))
