@@ -2,7 +2,7 @@
 	CSCI4030U: Big Data Project Part 1
 	Common Functions
 	Author: Michael Valdron
-	Date: Feb 12, 2018
+	Date: Feb 23, 2018
 */
 package main
 
@@ -38,8 +38,8 @@ func Max(list []int) int {
 }
 
 func CheckIn(i int, list []int) bool {
-	for _, v := range list {
-		if i == v {
+	for k := range list {
+		if i == list[k] {
 			return true
 		}
 	}
@@ -56,12 +56,12 @@ func GetLineCount(fname string) int {
 
 	lc := 0
 	fr := bufio.NewReader(f)
+	_, _, err = fr.ReadLine()
 
-	_, err = fr.ReadString(byte('\n'))
 	// Get line count of file
 	for err != io.EOF {
 		lc++
-		_, err = fr.ReadString(byte('\n'))
+		_, _, err = fr.ReadLine()
 	}
 
 	return lc
@@ -112,18 +112,21 @@ func GetFreqItems(fname string, t_hold float32, is_pcy bool) (map[int]int, int, 
 		return map[int]int{}, 0, 0, map[int]bool{}
 	}
 
-	n_bins := int(n / 2)
+	n_bins := int(float64(n) * float64(0.3))
 	c_items := make(map[int]bool)
 	c_item_counts := make(map[int]int)
 	itemsets_hashtable := make([]int, n_bins)
 	itemsets_bitmap := make(map[int]bool)
-	fs := bufio.NewScanner(f)
-	for fs.Scan() {
-		str_line := strings.Split(strings.TrimSuffix(fs.Text(), FILE_SEP), FILE_SEP)
-		GetItemCounts(str_line, c_items, c_item_counts)
-		if is_pcy {
-			HashPair(str_line, itemsets_hashtable, n_bins)
+	fr := bufio.NewReader(f)
+	line, _, err := fr.ReadLine()
+	for err != io.EOF {
+		int_line := []int{}
+		for _, str_item := range strings.Split(strings.TrimSuffix(string(line), FILE_SEP), FILE_SEP) {
+			int_item, _ := strconv.Atoi(str_item)
+			int_line = append(int_line, int_item)
 		}
+		GetItemCounts(int_line, c_items, c_item_counts, itemsets_hashtable, n_bins, is_pcy)
+		line, _, err = fr.ReadLine()
 	}
 
 	// Calculate minimum support
@@ -136,14 +139,22 @@ func GetFreqItems(fname string, t_hold float32, is_pcy bool) (map[int]int, int, 
 	return c_item_counts, min_supp, n_bins, itemsets_bitmap
 }
 
-func GetItemCounts(tuple []string, c_items map[int]bool, c_item_counts map[int]int) {
-	for _, item := range tuple {
-		int_item, _ := strconv.Atoi(item)
-		if !c_items[int_item] {
-			c_items[int_item] = true
-			c_item_counts[int_item] = 1
+func GetItemCounts(tuple []int,
+	c_items map[int]bool,
+	c_item_counts map[int]int,
+	itemset_hashtable []int,
+	n_bins int,
+	is_pcy bool) {
+	n := len(tuple)
+	for i, i_item := range tuple {
+		if !c_items[i_item] {
+			c_items[i_item] = true
+			c_item_counts[i_item] = 1
 		} else {
-			c_item_counts[int_item] += 1
+			c_item_counts[i_item] += 1
+		}
+		if is_pcy {
+			HashPair(tuple, itemset_hashtable, i, i_item, n, n_bins)
 		}
 	}
 }
@@ -154,17 +165,35 @@ func GenTuples(itemsets []map[int][]int,
 	n_bins int,
 	is_pcy bool) (map[int][]int, map[int]int) {
 	// Get Frequent Tuples
+	items := make(map[int]bool)
 	c_itemsets := make(map[int][]int)
 	c_itemset_counts := make(map[int]int)
 
+	for _, k_itemset := range itemsets[k] {
+		for _, item := range k_itemset {
+			if !items[item] {
+				items[item] = true
+			}
+		}
+	}
+
 	// Generate Tuples
 	row_id := 1
-	for _, k_itemset := range itemsets[k] {
-		for item := range itemsets[0] {
-			if is_pcy {
-				AddItemToSetPCY(k_itemset, item, c_itemsets, c_itemset_counts, &row_id, k, bitmap, n_bins)
-			} else {
-				AddItemToSetApriori(k_itemset, item, c_itemsets, c_itemset_counts, &row_id, k)
+	for _, a := range itemsets[k] {
+		selSet := a
+		for b := range items {
+			if !CheckIn(b, selSet) {
+				selSet = append(selSet, b)
+				if len(selSet) > (k + 1) {
+					if is_pcy && k < 1 {
+						if bitmap[MulHashFunc(selSet, n_bins)] {
+							AddItemToSet(selSet, c_itemsets, c_itemset_counts, &row_id, k)
+						}
+					} else {
+						AddItemToSet(selSet, c_itemsets, c_itemset_counts, &row_id, k)
+					}
+					selSet = a
+				}
 			}
 		}
 	}
@@ -172,48 +201,18 @@ func GenTuples(itemsets []map[int][]int,
 	return c_itemsets, c_itemset_counts
 }
 
-func AddItemToSetApriori(selSet []int, item int, c_itemsets map[int][]int, c_itemset_counts map[int]int, row_id *int, k int) {
-	if !CheckIn(item, selSet) {
-		itemset := append(selSet, item)
-		is_similar := false
-		for _, c_itemset := range c_itemsets {
-			is_similar = IsSimilar(itemset, c_itemset, k)
-			if is_similar {
-				break
-			}
-		}
-		if !is_similar {
-			c_itemsets[*row_id] = itemset
-			c_itemset_counts[*row_id] = 0
-			*row_id++
+func AddItemToSet(selSet []int, c_itemsets map[int][]int, c_itemset_counts map[int]int, row_id *int, k int) {
+	is_similar := false
+	for _, c_itemset := range c_itemsets {
+		is_similar = IsSimilar(selSet, c_itemset, k)
+		if is_similar {
+			break
 		}
 	}
-}
-
-func AddItemToSetPCY(selSet []int,
-	item int,
-	c_itemsets map[int][]int,
-	c_itemset_counts map[int]int,
-	row_id *int,
-	k int,
-	bitmap map[int]bool,
-	n_bins int) {
-	if !CheckIn(item, selSet) {
-		itemset := append(selSet, item)
-		if bitmap[MulHashFunc(itemset, n_bins)] {
-			is_similar := false
-			for _, c_itemset := range c_itemsets {
-				is_similar = IsSimilar(itemset, c_itemset, k)
-				if is_similar {
-					break
-				}
-			}
-			if !is_similar {
-				c_itemsets[*row_id] = itemset
-				c_itemset_counts[*row_id] = 0
-				*row_id++
-			}
-		}
+	if !is_similar {
+		c_itemsets[*row_id] = selSet
+		c_itemset_counts[*row_id] = 0
+		*row_id++
 	}
 }
 
@@ -233,8 +232,7 @@ func GetFreqTuples(itemsets map[int][]int,
 	k int,
 	min_supp int,
 	itemsets_bitmap map[int]bool,
-	n_bins int,
-	is_pcy bool) (map[int][]int, map[int]int) {
+	n_bins int) (map[int][]int, map[int]int) {
 	var c_itemsets map[int][]int
 	var c_itemset_counts map[int]int
 	var itemsets_hashtable []int
@@ -258,16 +256,14 @@ func GetFreqTuples(itemsets map[int][]int,
 	}
 
 	itemsets_hashtable = make([]int, n_bins)
-	fs := bufio.NewScanner(f)
+	fr := bufio.NewReader(f)
+	line, _, err := fr.ReadLine()
 
-	for fs.Scan() {
-		f_line := strings.Split(strings.TrimSuffix(fs.Text(), FILE_SEP), FILE_SEP)
+	for err != io.EOF {
+		f_line := strings.Split(strings.TrimSuffix(string(line), FILE_SEP), FILE_SEP)
 		line_map := GetLineBitmap(f_line)
-		GetItemsetCounts(f_line, c_itemsets, c_itemset_counts, line_map, k, itemsets_hashtable, n_bins, is_pcy)
-	}
-
-	if is_pcy {
-		HashtableToBitmap(itemsets_hashtable, itemsets_bitmap, min_supp)
+		GetItemsetCounts(f_line, c_itemsets, c_itemset_counts, line_map, k, itemsets_hashtable, n_bins)
+		line, _, err = fr.ReadLine()
 	}
 
 	return c_itemsets, c_itemset_counts
@@ -288,20 +284,10 @@ func GetItemsetCounts(f_line []string,
 	line_map map[int]bool,
 	k int,
 	itemset_hashtable []int,
-	n_bins int,
-	is_pcy bool) {
+	n_bins int) {
 	for key, tuple := range c_itemsets {
 		if IsSubset(tuple, line_map, k) {
 			c_itemset_counts[key]++
-			if is_pcy {
-				for _, item := range f_line {
-					int_item, _ := strconv.Atoi(item)
-					if !CheckIn(int_item, tuple) {
-						h_tuple := append(tuple, int_item)
-						itemset_hashtable[MulHashFunc(h_tuple, n_bins)] += 1
-					}
-				}
-			}
 		}
 	}
 }
