@@ -4,12 +4,13 @@
 	Author: Michael Valdron
 	Date: Feb 23, 2018
 */
-package main
+package common
 
 import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -48,11 +49,11 @@ func CheckIn(i int, list []int) bool {
 
 func GetLineCount(fname string) int {
 	f, err := os.Open(fname)
-	defer f.Close()
 	if err != nil {
 		fmt.Printf("%s\n", err)
 		return 0
 	}
+	defer f.Close()
 
 	lc := 0
 	fr := bufio.NewReader(f)
@@ -106,11 +107,11 @@ func GetFreqItems(fname string, t_hold float32, is_pcy bool) (map[int]int, int, 
 		return map[int]int{}, 0, 0, map[int]bool{}
 	}
 	f, err := os.Open(fname)
-	defer f.Close()
 	if err != nil {
 		fmt.Printf("%s\n", err)
 		return map[int]int{}, 0, 0, map[int]bool{}
 	}
+	defer f.Close()
 
 	n_bins := int(float64(n) * float64(0.3))
 	c_items := make(map[int]bool)
@@ -238,11 +239,11 @@ func GetFreqTuples(itemsets map[int][]int,
 	var itemsets_hashtable []int
 	// Count Tuples
 	f, err := os.Open(fname)
-	defer f.Close()
 	if err != nil {
 		fmt.Printf("%s\n", err)
 		return map[int][]int{}, map[int]int{}
 	}
+	defer f.Close()
 
 	c_itemsets = make(map[int][]int)
 	c_itemset_counts = make(map[int]int)
@@ -302,4 +303,34 @@ func IsSubset(tuple []int, line_map map[int]bool, k int) bool {
 		}
 	}
 	return n_similar > (k + 1)
+}
+
+func MulHashFunc(values []int, m int) int {
+	const a = 0.618033989
+	var h float64 = 0.0
+
+	for i := 0; i < len(values); i++ {
+		h += float64(values[i])
+	}
+
+	prod := h * a
+	frac := prod - math.Floor(prod)
+
+	return int(math.Floor(float64(m) * frac))
+}
+
+func HashPair(basket []int, itemset_hashtable []int, index int, i_item int, n int, n_bins int) {
+	for j := index; j < n; j++ {
+		j_item := basket[j]
+		if i_item != j_item {
+			pair := []int{i_item, j_item}
+			itemset_hashtable[MulHashFunc(pair, n_bins)] += 1
+		}
+	}
+}
+
+func HashtableToBitmap(itemset_hashtable []int, itemset_bitmap map[int]bool, min_supp int) {
+	for i := range itemset_hashtable {
+		itemset_bitmap[i] = itemset_hashtable[i] >= min_supp
+	}
 }

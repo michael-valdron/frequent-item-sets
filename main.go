@@ -13,6 +13,9 @@ import (
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/michael-valdron/frequent-item-sets/pkg/apriori"
+	"github.com/michael-valdron/frequent-item-sets/pkg/pcy"
 )
 
 const APRIORI_FLAG = "a"
@@ -111,7 +114,7 @@ func main() {
 			fmt.Println("Please wait..")
 			start_time = time.Now()
 			// Gets frequent itemsets from the Apriori algorithm
-			freq_itemsets, freq_itemset_counts = Apriori(*fname, float32(*thold/PERCENT_MAX))
+			freq_itemsets, freq_itemset_counts = apriori.Apriori(*fname, float32(*thold/PERCENT_MAX))
 			finish_time = time.Now()
 			fmt.Println("Printing result..")
 			// Print results
@@ -126,7 +129,7 @@ func main() {
 			fmt.Println("Please wait..")
 			start_time = time.Now()
 			// Gets frequent itemsets from the PCY algorithm
-			freq_itemsets, freq_itemset_counts = PCY(*fname, float32(*thold/PERCENT_MAX))
+			freq_itemsets, freq_itemset_counts = pcy.PCY(*fname, float32(*thold/PERCENT_MAX))
 			finish_time = time.Now()
 			fmt.Println("Printing result..")
 			// Print results

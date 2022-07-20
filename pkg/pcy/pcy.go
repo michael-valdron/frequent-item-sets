@@ -1,29 +1,30 @@
 /*
 	CSCI4030U: Big Data Project Part 1
-	Apriori
+	PCY
 	Author: Michael Valdron
 	Date: Feb 23, 2018
 */
-package main
+package pcy
 
 import (
 	"fmt"
 	"time"
+
+	"github.com/michael-valdron/frequent-item-sets/pkg/common"
 )
 
-func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
+func PCY(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
 	k := 0
 	var itemsets []map[int][]int
 	var counts []map[int]int
 
 	// Get Items First Pass -------------------------------------------------------------------------------------
 	start_time := time.Now()
-	c_item_counts, min_supp, _, _ := GetFreqItems(fname, t_hold, false)
-
+	c_item_counts, min_supp, n_bins, itemsets_bitmap := common.GetFreqItems(fname, t_hold, true)
 	itemsets = []map[int][]int{}
 	itemsets = append(itemsets, make(map[int][]int))
 
-	FilterItems(itemsets, c_item_counts, min_supp, k)
+	common.FilterItems(itemsets, c_item_counts, min_supp, k)
 
 	counts = append(counts, c_item_counts)
 
@@ -39,12 +40,12 @@ func Apriori(fname string, t_hold float32) ([]map[int][]int, []map[int]int) {
 	// Calculate Itemsets Second to Finite Pass -----------------------------------------------------------------
 	for len(itemsets[k]) > 0 && k < 2 {
 		start_time = time.Now()
-		c_itemsets, c_itemset_counts := GenTuples(itemsets, k, map[int]bool{}, 0, false)
-		c_itemsets, c_itemset_counts = GetFreqTuples(c_itemsets, c_itemset_counts, fname, k, min_supp, map[int]bool{}, 0)
+		c_itemsets, c_itemset_counts := common.GenTuples(itemsets, k, itemsets_bitmap, n_bins, true)
+		c_itemsets, c_itemset_counts = common.GetFreqTuples(c_itemsets, c_itemset_counts, fname, k, min_supp, itemsets_bitmap, n_bins)
 
 		itemsets = append(itemsets, make(map[int][]int))
 
-		FilterItemsets(itemsets, c_itemsets, c_itemset_counts, min_supp, k)
+		common.FilterItemsets(itemsets, c_itemsets, c_itemset_counts, min_supp, k)
 
 		counts = append(counts, c_itemset_counts)
 		finish_time = time.Now()
